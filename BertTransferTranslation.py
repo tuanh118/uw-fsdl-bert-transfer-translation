@@ -1,8 +1,8 @@
+import os
 import tarfile
 import torch
-import os
 
-from transformers import *
+from BertTransformerModel import BertTransformerModel
 
 # Reads a file from the Europarl parallel corpus.
 def load_parallel_corpus(language1, language2):
@@ -26,18 +26,6 @@ def load_parallel_corpus(language1, language2):
 
     return corpori
 
-# Tokenizes a sentence, runs it through a pre-trained BERT model and returns the output tensor.
-def encode_sentence(input):
-    # This downloads the BERT model the first time it is run, which is ~430 MB and may take some time.
-    model = BertModel.from_pretrained('bert-base-uncased')
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-    input_ids = torch.tensor([tokenizer.encode(input, add_special_tokens=True)])
-    with torch.no_grad():
-        last_hidden_states = model(input_ids)[0]
-
-    return last_hidden_states
-
 fr_en_corpus = load_parallel_corpus("fr", "en")
 es_en_corpus = load_parallel_corpus("es", "en")
 
@@ -48,4 +36,5 @@ print(es_en_corpus[0][0])
 print(es_en_corpus[1][0])
 
 # Run one sentence through BERT to prove encoding works.
-print(encode_sentence(fr_en_corpus[1][0]))
+model = BertTransformerModel()
+print(model.forward(fr_en_corpus[1][0]))
