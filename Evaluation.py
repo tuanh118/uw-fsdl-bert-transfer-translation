@@ -18,4 +18,5 @@ def evaluate_translation(true_filename, prediction_filename):
 
     return corpus_bleu(references, hypotheses)
 
-evaluate_translation('true.fr-en.fr', 'baseline.fr-en.fr')
+print(evaluate_translation('y_test_true.fr-en.txt', 'y_test_pred.fr-en.txt'))
+# 0.4302023469880712
