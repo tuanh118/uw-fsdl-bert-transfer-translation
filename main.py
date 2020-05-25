@@ -26,7 +26,7 @@ def instantiate_tokenizer():
     return BertTokenizer.from_pretrained('bert-base-uncased')
 
 # Given a path to a text file, load and tokenize each line using the provided tokenizer, then convert each token to an ID and pad all lines to have length max_tokens.
-def load_dataset_new(language_path, tokenizer, num_examples=None, max_tokens=500):
+def load_dataset(language_path, tokenizer, num_examples=None, max_tokens=500):
     # Read the data.
     lines = io.open(language_path, encoding='UTF-8').read().strip().splitlines()[:num_examples]
 
@@ -51,32 +51,32 @@ def load_dataset_new(language_path, tokenizer, num_examples=None, max_tokens=500
 num_examples = 300
 max_tokens = 50
 tokenizer = instantiate_tokenizer()
-input_tensor_new, masks, segments = load_dataset_new(path_to_fr_en_en_file, tokenizer, num_examples, max_tokens)
-target_tensor_new, _, _ = load_dataset_new(path_to_fr_en_fr_file, tokenizer, num_examples, max_tokens)
+input_tensor, masks, segments = load_dataset(path_to_fr_en_en_file, tokenizer, num_examples, max_tokens)
+target_tensor, _, _ = load_dataset(path_to_fr_en_fr_file, tokenizer, num_examples, max_tokens)
 
 # Split the data into training and validation sets.  No test set for now since we're just experimenting.
-input_tensor_train_new, input_tensor_val_new, target_tensor_train_new, target_tensor_val_new = train_test_split(input_tensor_new, target_tensor_new, test_size=0.2)
+input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor, target_tensor, test_size=0.2)
 
 # Do some printing to show that the processing worked.
-def convert_new(tokenizer, tensor):
+def convert(tokenizer, tensor):
     for t in tensor:
         if t != 0:
             print ("%d ----> %s" % (t, tokenizer.ids_to_tokens[t]))
 
 print("ID to token mapping for first training example (input)")
-convert_new(tokenizer, input_tensor_train_new[0])
+convert(tokenizer, input_tensor_train[0])
 print()
 print("ID to token mapping for first training example (target)")
-convert_new(tokenizer, target_tensor_train_new[0])
+convert(tokenizer, target_tensor_train[0])
 
-BATCH_SIZE_NEW = 64
-steps_per_epoch_new = len(input_tensor_train_new) // BATCH_SIZE_NEW
-embedding_dim_new = 32
-units_new = 32
-vocab_size_new = len(tokenizer.vocab)
+BATCH_SIZE = 64
+steps_per_epoch = len(input_tensor_train) // BATCH_SIZE
+embedding_dim = 32
+units = 32
+vocab_size = len(tokenizer.vocab)
 
-train_dataset_new = tf.data.Dataset.from_tensor_slices((input_tensor_train_new, target_tensor_train_new)).shuffle(len(input_tensor_train_new)).batch(BATCH_SIZE_NEW, drop_remainder=True)
-validation_dataset_new = tf.data.Dataset.from_tensor_slices((input_tensor_val_new, target_tensor_val_new)).shuffle(len(input_tensor_val_new)).batch(BATCH_SIZE_NEW, drop_remainder=True)
+train_dataset = tf.data.Dataset.from_tensor_slices((input_tensor_train, target_tensor_train)).shuffle(len(input_tensor_train)).batch(BATCH_SIZE, drop_remainder=True)
+validation_dataset = tf.data.Dataset.from_tensor_slices((input_tensor_val, target_tensor_val)).shuffle(len(input_tensor_val)).batch(BATCH_SIZE, drop_remainder=True)
 
 ###################################
 ###      MODEL PREPARATION      ###
@@ -87,9 +87,9 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5, epsilon=1e-08, clipnorm
 loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 metric = tf.keras.metrics.SparseCategoricalAccuracy('accuracy')
 
-model_new = CombinedBertTransformerModel(
-    input_shape=train_dataset_new.as_numpy_iterator().next()[0].shape,
-    vocab_size=vocab_size_new,
+model = CombinedBertTransformerModel(
+    input_shape=train_dataset.as_numpy_iterator().next()[0].shape,
+    vocab_size=vocab_size,
     num_layers=2,
     units=32,
     d_model=32,
@@ -97,16 +97,16 @@ model_new = CombinedBertTransformerModel(
     dropout=0.2,
     padding_label=0
 )
-model_new.compile(optimizer=optimizer, loss=loss, metrics=[metric])
-model_new.summary()
+model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
+model.summary()
 
 # Train and evaluate the model using tf.keras.Model.fit()
 # TODO This doesn't work yet.
-history = model_new.fit(
-    train_dataset_new,
+history = model.fit(
+    train_dataset,
     epochs=2,
     steps_per_epoch=115,
-    validation_data=validation_dataset_new,
+    validation_data=validation_dataset,
     validation_steps=7
 )
 
