@@ -2,12 +2,11 @@ import numpy as np
 import tensorflow as tf
 from transformers import *
 
-from typing import Tuple
 from decoder import *
 from masking import *
 
 def CombinedBertTransformerModel(
-    input_shape: Tuple[int, ...],
+    max_tokens: int,
     vocab_size: int,
     num_layers: int,
     units: int,
@@ -23,10 +22,10 @@ def CombinedBertTransformerModel(
     for layer in bert_model.layers:
         layer.trainable = False
 
-    tokenized_input_sentence = tf.keras.Input(input_shape, name="tokenized_input_sentence", dtype=tf.int32)
+    tokenized_input_sentence = tf.keras.Input(shape=(max_tokens,), name="tokenized_input_sentence", dtype=tf.int32)
     bert_outputs = bert_model(tokenized_input_sentence)[0]
 
-    tokenized_output_sentence = tf.keras.Input(input_shape, name="tokenized_output_sentence")
+    tokenized_output_sentence = tf.keras.Input(shape=(max_tokens,), name="tokenized_output_sentence", dtype=tf.int32)
 
     # Mask the future tokens for decoder inputs at the 1st attention block
     look_ahead_mask = tf.keras.layers.Lambda(

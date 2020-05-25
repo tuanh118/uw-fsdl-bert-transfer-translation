@@ -88,7 +88,7 @@ loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 metric = tf.keras.metrics.SparseCategoricalAccuracy('accuracy')
 
 model = CombinedBertTransformerModel(
-    input_shape=train_dataset.as_numpy_iterator().next()[0].shape,
+    max_tokens=max_tokens,
     vocab_size=vocab_size,
     num_layers=2,
     units=32,
