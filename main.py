@@ -7,6 +7,9 @@ import os
 import time
 
 from CombinedBertTransformerModel import *
+from DatasetSequence import *
+from functools import partial
+from util import *
 
 ###################################
 ###        DATA RETRIEVAL       ###
@@ -48,9 +51,13 @@ def load_dataset(language_path, tokenizer, num_examples=None, max_tokens=500):
 
     return ids, masks, segments
 
-num_examples = 300
-max_tokens = 50
+BATCH_SIZE = 64
+d_model = 32
+num_examples = BATCH_SIZE * 5
+max_tokens = 200
 tokenizer = instantiate_tokenizer()
+vocab_size = len(tokenizer.vocab)
+
 input_tensor, masks, segments = load_dataset(path_to_fr_en_en_file, tokenizer, num_examples, max_tokens)
 target_tensor, _, _ = load_dataset(path_to_fr_en_fr_file, tokenizer, num_examples, max_tokens)
 
@@ -69,44 +76,48 @@ print()
 print("ID to token mapping for first training example (target)")
 convert(tokenizer, target_tensor_train[0])
 
-BATCH_SIZE = 64
-steps_per_epoch = len(input_tensor_train) // BATCH_SIZE
-embedding_dim = 32
-units = 32
-vocab_size = len(tokenizer.vocab)
+def format_batch(x, y):
+    """
+    Inputs are x and y up to the last character.
+    Outputs are y from first character (shifted).
+    """
+    return [x, y[:, :-1]], y[:, 1:]
 
-train_dataset = tf.data.Dataset.from_tensor_slices((input_tensor_train, target_tensor_train)).shuffle(len(input_tensor_train)).batch(BATCH_SIZE, drop_remainder=True)
-validation_dataset = tf.data.Dataset.from_tensor_slices((input_tensor_val, target_tensor_val)).shuffle(len(input_tensor_val)).batch(BATCH_SIZE, drop_remainder=True)
+train_dataset = DatasetSequence(input_tensor_train, target_tensor_train, batch_size=BATCH_SIZE, format_fn=format_batch)
+validation_dataset = DatasetSequence(input_tensor_val, target_tensor_val, batch_size=BATCH_SIZE, format_fn=format_batch)
 
 ###################################
 ###      MODEL PREPARATION      ###
 ###################################
 
 # Prepare training: Compile tf.keras model with optimizer, loss and learning rate schedule
-optimizer = tf.keras.optimizers.Adam(learning_rate=3e-5, epsilon=1e-08, clipnorm=1.0)
-loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
-metric = tf.keras.metrics.SparseCategoricalAccuracy('accuracy')
+learning_rate = CustomSchedule(d_model=d_model)
+optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+
+loss = partial(sparse_categorical_crossentropy_ignoring_padding, padding_label=0)
+loss.__name__ = 'loss'
+accuracy = partial(sparse_categorical_accuracy_ignoring_padding, padding_label=0)
+accuracy.__name__ = 'accuracy'
 
 model = CombinedBertTransformerModel(
     max_tokens=max_tokens,
     vocab_size=vocab_size,
     num_layers=2,
     units=32,
-    d_model=32,
+    d_model=d_model,
     num_heads=2,
-    dropout=0.2,
+    dropout=0,
     padding_label=0
 )
-model.compile(optimizer=optimizer, loss=loss, metrics=[metric])
+model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy])
 model.summary()
 
 # Train and evaluate the model using tf.keras.Model.fit()
-# TODO This doesn't work yet.
-history = model.fit(
+model.fit(
     train_dataset,
-    epochs=2,
-    steps_per_epoch=115,
     validation_data=validation_dataset,
-    validation_steps=7
+    use_multiprocessing=False,
+    workers=1,
+    shuffle=True,
+    epochs=10
 )
-
