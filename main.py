@@ -33,33 +33,26 @@ def load_dataset(language_path, tokenizer, num_examples=None, max_tokens=500):
     # Read the data.
     lines = io.open(language_path, encoding='UTF-8').read().strip().splitlines()[:num_examples]
 
-    # Tokenize and add the special start token.
-    tokenized_lines = [ ['[CLS]'] + tokenizer.tokenize(line)[:max_tokens-1] + ['[SEP]'] for line in lines ]
+    # Tokenize each line, adding the special start and end tokens.
+    tokenized_lines = [ [tokenizer.cls_token] + tokenizer.tokenize(line)[:max_tokens-2] + [tokenizer.sep_token] for line in lines ]
     
     # Convert tokens to IDs.
     ids = [ tokenizer.convert_tokens_to_ids(tokenized_line) for tokenized_line in tokenized_lines ]
 
-    # Generate padding masks and segment IDs. These have the same length as the ID sequences after padding.
-    # Padding mask is 1 where there is an actual ID and 0 where there is padding. Segment ID is always 0.
-    masks = [ [1] * len(tokenized_line) for tokenized_line in tokenized_lines ]
-    segments = [ [] for tokenized_line in tokenized_lines ]
-
     # Pad all ID sequences to the maximum length with zeroes.
-    ids = tf.keras.preprocessing.sequence.pad_sequences(ids, maxlen=max_tokens, truncating="post", padding="post", dtype="int")
-    masks = tf.keras.preprocessing.sequence.pad_sequences(masks, maxlen=max_tokens, truncating="post", padding="post", dtype="int")
-    segments = tf.keras.preprocessing.sequence.pad_sequences(segments, maxlen=max_tokens, truncating="post", padding="post", dtype="int")
+    ids = tf.keras.preprocessing.sequence.pad_sequences(ids, value=tokenizer.pad_token_id, maxlen=max_tokens, truncating="post", padding="post")
 
-    return ids, masks, segments
+    return ids
 
 BATCH_SIZE = 64
-d_model = 32
+d_model = 128
 num_examples = BATCH_SIZE * 5
 max_tokens = 200
 tokenizer = instantiate_tokenizer()
 vocab_size = len(tokenizer.vocab)
 
-input_tensor, masks, segments = load_dataset(path_to_fr_en_en_file, tokenizer, num_examples, max_tokens)
-target_tensor, _, _ = load_dataset(path_to_fr_en_fr_file, tokenizer, num_examples, max_tokens)
+input_tensor = load_dataset(path_to_fr_en_en_file, tokenizer, num_examples, max_tokens)
+target_tensor = load_dataset(path_to_fr_en_fr_file, tokenizer, num_examples, max_tokens)
 
 # Split the data into training and validation sets.  No test set for now since we're just experimenting.
 input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = train_test_split(input_tensor, target_tensor, test_size=0.2)
@@ -68,7 +61,7 @@ input_tensor_train, input_tensor_val, target_tensor_train, target_tensor_val = t
 def convert(tokenizer, tensor):
     for t in tensor:
         if t != 0:
-            print ("%d ----> %s" % (t, tokenizer.ids_to_tokens[t]))
+            print("%d ----> %s" % (t, tokenizer.ids_to_tokens[t]))
 
 print("ID to token mapping for first training example (input)")
 convert(tokenizer, input_tensor_train[0])
@@ -102,18 +95,18 @@ accuracy.__name__ = 'accuracy'
 model = CombinedBertTransformerModel(
     max_tokens=max_tokens,
     vocab_size=vocab_size,
-    num_layers=2,
+    num_layers=4,
     units=32,
     d_model=d_model,
-    num_heads=2,
+    num_heads=4,
     dropout=0,
-    padding_label=0
+    padding_label=tokenizer.pad_token_id
 )
 model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy])
 model.summary()
 
 # Train and evaluate the model using tf.keras.Model.fit()
-model.fit(
+history = model.fit(
     train_dataset,
     validation_data=validation_dataset,
     use_multiprocessing=False,
@@ -121,3 +114,15 @@ model.fit(
     shuffle=True,
     epochs=10
 )
+
+# Save the training history and learned parameters for later examination.
+import datetime
+import pickle
+
+timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+with open('history' + timestamp, 'wb') as history_file:
+    pickle.dump(history.history, history_file)
+model.save_weights('checkpoint' + timestamp)
+
+# Extra line you can set a breakpoint on to examine the trained model.
+print("End of program")
