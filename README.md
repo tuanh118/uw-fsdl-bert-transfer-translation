@@ -21,9 +21,12 @@ The BERT model we used is huge, with over 109 million parameters. To speed up th
 
 Before attempting the French and Spanish translation tasks, we tuned the decoder hyperparameters on an English to English task until we saw the loss drop very close to zero. This ensured that our decoder had sufficient representational power to interpret BERT embeddings.
 
-## Findings
-**TODO** Plot the loss curve for all four tasks
+We trained on only a small subset of the EuroParl corpus (400 training batches, 100 validation batches, 64 sentence pairs per batch). Even so, each training took ~1 hour on a GTX 1080 Ti. Final accuracy might be improved by repeating this experiment with more data.
 
-**TODO** Decide whether transfer learning was observed
+## Findings
+We observed significant transfer learning in both trials. The loss and accuracy plateaued around the same values regardless of whether the models were pre-trained, but the pre-trained models were able to reach this plateau sooner.
+ - 10 epochs of pre-training on Spanish followed by 1 epoch training on French were slightly more effective than 5 epochs training on French from scratch.
+ - 10 epochs of pre-training on French followed by 1 epoch training on Spanish were slightly more effective than 6 epochs training on Spanish from scratch.
+![Plots of accuracy and loss by epoch](https://github.com/tuanh118/uw-fsdl-bert-transfer-translation/raw/master/plots/Plots.png)
 
 **TODO** Report BLEU scores and comment on quality of translations
