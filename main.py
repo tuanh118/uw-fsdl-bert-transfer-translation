@@ -46,7 +46,7 @@ def load_dataset(language_path, tokenizer, num_examples=None, max_tokens=500):
 
 BATCH_SIZE = 64
 d_model = 128
-num_examples = BATCH_SIZE * 5
+num_examples = BATCH_SIZE * 500
 max_tokens = 200
 tokenizer = instantiate_tokenizer()
 vocab_size = len(tokenizer.vocab)
@@ -105,6 +105,9 @@ model = CombinedBertTransformerModel(
 model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy])
 model.summary()
 
+# Uncomment this line to load pre-trained weights from a previous run.
+#model.load_weights('checkpoint20200531151710')
+
 # Train and evaluate the model using tf.keras.Model.fit()
 history = model.fit(
     train_dataset,
@@ -114,6 +117,33 @@ history = model.fit(
     shuffle=True,
     epochs=10
 )
+
+def run_transformer_inference(
+    model: tf.keras.models.Model, input: tf.Tensor, max_length: int, start_label: int, end_label: int
+) -> tf.Tensor:
+    target = tf.expand_dims([start_label], 0)
+
+    for i in range(max_length):
+        predictions = model(inputs=[tf.expand_dims(input, 0), target], training=False)
+
+        # select the last word from the seq_len dimension
+        predictions = predictions[:, -1:, :]
+        predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
+
+        if tf.equal(predicted_id, end_label):
+            break
+
+        # concatenated the predicted_id to the output which is given to the decoder as input
+        target = tf.concat([target, predicted_id], axis=-1)
+
+    return tf.squeeze(target, axis=0)
+
+for ix, input in enumerate(input_tensor_train):
+    translated_tokens = run_transformer_inference(model, input=input, max_length=max_tokens, start_label=tokenizer.cls_token_id, end_label=tokenizer.sep_token_id)
+    translated_sentence = tokenizer.decode(translated_tokens, skip_special_tokens=True)
+    print('Translated sentence: ' + translated_sentence)
+    print('Reference translation: ' + tokenizer.decode(target_tensor_train[ix], skip_special_tokens=True))
+    print()
 
 # Save the training history and learned parameters for later examination.
 import datetime
