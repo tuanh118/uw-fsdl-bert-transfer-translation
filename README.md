@@ -33,6 +33,8 @@ We observed significant transfer learning in both trials. The loss and accuracy 
 ### Translation quality
 We used each trained model to translate 300 hold-out sentences using greedy search, and compared these to the reference translations. Many of these sentences had complex grammatical structure due to the nature of the corpori used.
 
+Inference was quite slow, taking several seconds per sentence. This is largely due to the BERT model having so many parameters.
+
 The few several words of each translation are often of good quality in terms of grammar and semantic meaning, but quality declines as the length of the translation increases, likely due to our use of greedy search. The models also have trouble with numbers, sometimes altering numbers slightly in translation.  Using beam search with beam size K>1 likely would have produced higher-quality translations, but we did not attempt this.
 
 Some particular examples (English to French):
