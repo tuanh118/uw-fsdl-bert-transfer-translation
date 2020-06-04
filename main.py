@@ -16,6 +16,7 @@ from util import *
 ###################################
 
 # Download the EuroParl French-English corpus.
+# Switch "fr" to "es" everywhere in the next 3 lines to learn Spanish instead of French.
 path_to_fr_en_tar = tf.keras.utils.get_file('fr-en.tgz', origin='https://www.statmt.org/europarl/v7/fr-en.tgz', extract=True)
 path_to_fr_en_en_file = os.path.dirname(path_to_fr_en_tar) + "/europarl-v7.fr-en.en"
 path_to_fr_en_fr_file = os.path.dirname(path_to_fr_en_tar) + "/europarl-v7.fr-en.fr"
@@ -23,10 +24,6 @@ path_to_fr_en_fr_file = os.path.dirname(path_to_fr_en_tar) + "/europarl-v7.fr-en
 ###################################
 ###       DATA PROCESSING       ###
 ###################################
-
-# Sets up a BERT tokenizer.
-def instantiate_tokenizer():
-    return BertTokenizer.from_pretrained('bert-base-uncased')
 
 # Given a path to a text file, load and tokenize each line using the provided tokenizer, then convert each token to an ID and pad all lines to have length max_tokens.
 def load_dataset(language_path, tokenizer, num_examples=None, max_tokens=500):
@@ -106,7 +103,7 @@ model.compile(optimizer=optimizer, loss=loss, metrics=[accuracy])
 model.summary()
 
 # Uncomment this line to load pre-trained weights from a previous run.
-#model.load_weights('checkpoint20200531151710')
+#model.load_weights('checkpoint_en_fr_20200531151710')
 
 # Train and evaluate the model using tf.keras.Model.fit()
 history = model.fit(
@@ -118,41 +115,11 @@ history = model.fit(
     epochs=10
 )
 
-def run_transformer_inference(
-    model: tf.keras.models.Model, input: tf.Tensor, max_length: int, start_label: int, end_label: int
-) -> tf.Tensor:
-    target = tf.expand_dims([start_label], 0)
-
-    for i in range(max_length):
-        predictions = model(inputs=[tf.expand_dims(input, 0), target], training=False)
-
-        # select the last word from the seq_len dimension
-        predictions = predictions[:, -1:, :]
-        predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
-
-        if tf.equal(predicted_id, end_label):
-            break
-
-        # concatenated the predicted_id to the output which is given to the decoder as input
-        target = tf.concat([target, predicted_id], axis=-1)
-
-    return tf.squeeze(target, axis=0)
-
-for ix, input in enumerate(input_tensor_train):
-    translated_tokens = run_transformer_inference(model, input=input, max_length=max_tokens, start_label=tokenizer.cls_token_id, end_label=tokenizer.sep_token_id)
-    translated_sentence = tokenizer.decode(translated_tokens, skip_special_tokens=True)
-    print('Translated sentence: ' + translated_sentence)
-    print('Reference translation: ' + tokenizer.decode(target_tensor_train[ix], skip_special_tokens=True))
-    print()
-
 # Save the training history and learned parameters for later examination.
 import datetime
 import pickle
 
 timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-with open('history' + timestamp, 'wb') as history_file:
+with open('history_en_fr_' + timestamp, 'wb') as history_file:
     pickle.dump(history.history, history_file)
-model.save_weights('checkpoint' + timestamp)
-
-# Extra line you can set a breakpoint on to examine the trained model.
-print("End of program")
+model.save_weights('checkpoint_en_fr_' + timestamp)

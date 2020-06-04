@@ -3,7 +3,11 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
 import tensorflow as tf
+from transformers import *
 
+# Sets up a BERT tokenizer.
+def instantiate_tokenizer():
+    return BertTokenizer.from_pretrained('bert-base-uncased')
 
 def sparse_categorical_crossentropy_ignoring_padding(
     y_true: tf.Tensor, y_pred: tf.Tensor, padding_label: int
